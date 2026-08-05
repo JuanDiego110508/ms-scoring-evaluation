@@ -11,7 +11,7 @@ import com.worlddance.ms_scoring.service.EvaluationService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/events/{eventId}/modalities/{modalityId}/results")
+@RequestMapping("/results/{eventId}/{modalityId}")
 @RequiredArgsConstructor
 public class ResultController {
 

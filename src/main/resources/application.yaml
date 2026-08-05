@@ -1,3 +1,22 @@
 spring:
   application:
     name: ms-scoring
+  
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
+      auto-index-creation: true
+
+logging: # Seccion de logs
+  level: # Niveles por paquete / clase
+    org.springframework.web: DEBUG # Logs detallados para web (request HTTP)
+    org.springframework.data.mongodb.core: DEBUG # Logs detallados para MongoDB (consultas)
+server:
+  port: 9093
+  servlet:
+    context-path: /api/v1
+
+security:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY}
+    token-expiration: 900000
