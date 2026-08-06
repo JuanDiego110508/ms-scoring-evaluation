@@ -2,6 +2,16 @@ spring:
   application:
     name: ms-scoring
   
+  cloud:
+    consul:
+      host: consul
+      port: 8500
+      discovery:
+        register: true
+        health-check-path: /actuator/health
+        prefer-ip-address: false
+        instance-id: ${spring.application.name}
+
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
@@ -18,5 +28,8 @@ server:
 
 security:
   jwt:
-    secret-key: ${JWT_SECRET_KEY}
+    secret-key: ${jwt_secret}
     token-expiration: 900000
+
+jwt:
+  secret: ${JWT_SECRET}
