@@ -1,3 +1,37 @@
 spring:
   application:
     name: ms-scoring
+  
+  cloud:
+    consul:
+      host: consul
+      port: 8500
+      discovery:
+        register: true
+        health-check-path: /api/v1/actuator/health
+        instance-id: ${spring.application.name}
+        prefer-ip-address: true
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
+      auto-index-creation: true
+
+logging: # Seccion de logs
+  level: # Niveles por paquete / clase
+    org.springframework.web: DEBUG # Logs detallados para web (request HTTP)
+    org.springframework.data.mongodb.core: DEBUG # Logs detallados para MongoDB (consultas)
+server:
+  port: 9093
+  servlet:
+    context-path: /api/v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=}
