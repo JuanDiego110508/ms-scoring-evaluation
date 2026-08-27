@@ -6,10 +6,6 @@ import com.worlddance.ms_scoring.dto.request.CreateEvaluationRequest;
 import com.worlddance.ms_scoring.dto.request.UpdateEvaluationRequest;
 import com.worlddance.ms_scoring.dto.response.EvaluationResponse;
 import com.worlddance.ms_scoring.dto.response.ResultResponse;
-<<<<<<< HEAD
-=======
-import com.worlddance.ms_scoring.entity.Result;
->>>>>>> develop
 
 public interface EvaluationService {
     
