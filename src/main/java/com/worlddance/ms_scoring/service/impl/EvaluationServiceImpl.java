@@ -98,7 +98,11 @@ public class EvaluationServiceImpl implements EvaluationService {
     public void closeEvaluationSession(String eventId, String modalityId, String organizerId) {
 
         /**
+<<<<<<< HEAD
         * Validar organizador desde event
+=======
+        * Validar organizador desde enrollment
+>>>>>>> develop
         */
 
         EvaluationSession session = findEvaluationSession(eventId, modalityId);
@@ -112,7 +116,11 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     /*
      * Validar que organizerId corresponda a un ORGANIZER
+<<<<<<< HEAD
      * consultando Event service
+=======
+     * consultando el Enrollment Service.
+>>>>>>> develop
      */
 
         EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId,modalityId).orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación."));

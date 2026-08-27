@@ -8,9 +8,9 @@ spring:
       port: 8500
       discovery:
         register: true
-        health-check-path: /actuator/health
-        prefer-ip-address: false
+        health-check-path: /api/v1/actuator/health
         instance-id: ${spring.application.name}
+        prefer-ip-address: true
 
   data:
     mongodb:
@@ -25,11 +25,11 @@ server:
   port: 9093
   servlet:
     context-path: /api/v1
-
 security:
   jwt:
     secret-key: ${jwt_secret}
     token-expiration: 900000
 
-jwt:
-  secret: ${JWT_SECRET}
+security:
+  jwt:
+    secret: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=}

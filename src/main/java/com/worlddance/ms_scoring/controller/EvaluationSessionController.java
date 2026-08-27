@@ -8,7 +8,7 @@ import com.worlddance.ms_scoring.service.EvaluationService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/events/{eventId}/modalities/{modalityId}")
+@RequestMapping("/scoring/events/{eventId}/modalities/{modalityId}/session")
 @RequiredArgsConstructor
 public class EvaluationSessionController {
 
@@ -16,23 +16,21 @@ public class EvaluationSessionController {
 
     @PatchMapping("/close")
     public ResponseEntity<Void> closeEvaluationSession(
-
         @PathVariable String eventId,
         @PathVariable String modalityId,
         @RequestParam String organizerId) {
 
-            evaluationService.closeEvaluationSession(eventId, modalityId, organizerId);
-            return ResponseEntity.noContent().build();
-        }
+        evaluationService.closeEvaluationSession(eventId, modalityId, organizerId);
+        return ResponseEntity.noContent().build();
+    }
 
     @PatchMapping("/publish")
     public ResponseEntity<Void> publishResults(
-
         @PathVariable String eventId,
         @PathVariable String modalityId,
         @RequestParam String organizerId) {
 
-            evaluationService.publishResults(eventId, modalityId, organizerId);
-            return ResponseEntity.noContent().build();
-        }
+        evaluationService.publishResults(eventId, modalityId, organizerId);
+        return ResponseEntity.noContent().build();
+    }
 }

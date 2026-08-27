@@ -11,7 +11,7 @@ import com.worlddance.ms_scoring.service.EvaluationService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/results/{eventId}/{modalityId}")
+@RequestMapping("/scoring/events/{eventId}/modalities/{modalityId}/results")
 @RequiredArgsConstructor
 public class ResultController {
 
@@ -22,6 +22,6 @@ public class ResultController {
         @PathVariable String eventId,
         @PathVariable String modalityId) {
 
-            return ResponseEntity.ok(evaluationService.getResultsByModality(eventId, modalityId));
-        }
+        return ResponseEntity.ok(evaluationService.getResultsByModality(eventId, modalityId));
+    }
 }
