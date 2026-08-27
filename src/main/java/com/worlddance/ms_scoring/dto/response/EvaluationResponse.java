@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.List;
 
 import com.worlddance.ms_scoring.entity.embedded.CriterionScore;
-import com.worlddance.ms_scoring.enums.EvaluationStatus;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
