@@ -1,28 +1,30 @@
 spring:
   application:
     name: ms-scoring
-  
-  cloud:
-    consul:
-      host: consul
-      port: 8500
-      discovery:
-        register: true
-        health-check-path: /api/v1/actuator/health
-        instance-id: ${spring.application.name}
-        prefer-ip-address: true
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
 
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
       auto-index-creation: true
 
-logging: # Seccion de logs
-  level: # Niveles por paquete / clase
-    org.springframework.web: DEBUG # Logs detallados para web (request HTTP)
-    org.springframework.data.mongodb.core: DEBUG # Logs detallados para MongoDB (consultas)
+  cloud:
+    consul:
+      host: ${URL_CONSUL:localhost}
+      port: ${PORT_CONSUL:8500}
+      discovery:
+        health-check-path: /api/v1/actuator/health
+        health-check-interval: 10s
+        instance-id: ${spring.application.name}:${random.value}
+        prefer-ip-address: true
+
 server:
-  port: 9093
+  port: 9094
   servlet:
     context-path: /api/v1
 
@@ -30,8 +32,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
-
-security:
-  jwt:
-    secret: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=}
+        include: "*"
+  endpoint:
+    health:
+      show-details: always

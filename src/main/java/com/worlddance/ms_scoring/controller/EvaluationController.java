@@ -13,42 +13,41 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/events/{eventId}/modalities/{modalityId}/evaluations")
+@RequestMapping("/scoring/events/{eventId}/modalities/{modalityId}")
 @RequiredArgsConstructor
 public class EvaluationController {
 
     private final EvaluationService evaluationService;
 
-    @PostMapping("/enrollments/{enrollmentId}")
+    @PostMapping("/enrollments/{enrollmentId}/evaluations")
     public ResponseEntity<EvaluationResponse> registerEvaluation(
+            @PathVariable String eventId,
+            @PathVariable String modalityId,
+            @PathVariable String enrollmentId,
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody CreateEvaluationRequest request) {
 
-        @PathVariable String eventId,
-        @PathVariable String modalityId,
-        @PathVariable String enrollmentId,
-        @RequestParam String userId,
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(evaluationService.registerEvaluation(eventId, modalityId, enrollmentId, userId, request));
+    }
 
-        @Valid
-        @RequestBody CreateEvaluationRequest request) {
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(evaluationService.registerEvaluation(
-                eventId, modalityId, enrollmentId, userId, request));
-        }
-
-    @PutMapping("/{evaluationId}")
+    @PutMapping("/evaluations/{evaluationId}")
     public ResponseEntity<EvaluationResponse> updateEvaluation(
+            @PathVariable String eventId,
+            @PathVariable String modalityId,
+            @PathVariable String evaluationId,
+            @RequestHeader("X-User-Id") String userId,
+            @Valid @RequestBody UpdateEvaluationRequest request) {
 
-        @PathVariable String evaluationId,
-        @RequestParam String userId,
+        return ResponseEntity.ok(evaluationService.updateEvaluation(evaluationId, userId, request));
+    }
 
-        @Valid
-        @RequestBody UpdateEvaluationRequest request) {
+    @GetMapping("/evaluations/{evaluationId}")
+    public ResponseEntity<EvaluationResponse> getEvaluation(
+            @PathVariable String eventId,
+            @PathVariable String modalityId,
+            @PathVariable String evaluationId) {
 
-            return ResponseEntity.ok(evaluationService.updateEvaluation(evaluationId, userId, request));
-        }
-
-    @GetMapping("/{evaluationId}")
-    public ResponseEntity<EvaluationResponse> getEvaluation(@PathVariable String evaluationId) {
-        
         return ResponseEntity.ok(evaluationService.getEvaluation(evaluationId));
     }
 }
