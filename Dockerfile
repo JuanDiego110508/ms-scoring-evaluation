@@ -10,8 +10,8 @@ RUN echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" \
 COPY wd-lib-common ./wd-lib-common
 RUN mvn -s /usr/share/maven/ref/settings.xml -f wd-lib-common/pom.xml clean install -DskipTests
 
-COPY ms-Scoring-evaluation ./ms-Scoring-evaluation
-RUN mvn -s /usr/share/maven/ref/settings.xml -f ms-Scoring-evaluation/pom.xml clean package -DskipTests
+COPY ms-scoring-evaluation ./ms-scoring-evaluation
+RUN mvn -s /usr/share/maven/ref/settings.xml -f ms-scoring-evaluation/pom.xml clean package -DskipTests
 
 # ---- Etapa 2: Runtime ----
 FROM eclipse-temurin:21-jre-alpine
@@ -20,6 +20,6 @@ WORKDIR /app
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring
 
-COPY --from=builder /app/ms-Scoring-evaluation/target/*.jar app.jar
+COPY --from=builder /app/ms-scoring-evaluation/target/*.jar app.jar
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
