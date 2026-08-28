@@ -1,6 +1,7 @@
 spring:
   application:
     name: ms-scoring
+<<<<<<< HEAD
 
   autoconfigure:
     exclude:
@@ -23,6 +24,13 @@ spring:
         instance-id: ${spring.application.name}:${random.value}
         prefer-ip-address: true
 
+=======
+  
+    data:
+      mongodb:
+        uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
+        auto-index-creation: true
+>>>>>>> develop
 server:
   port: 9094
   servlet:
@@ -35,4 +43,18 @@ management:
         include: "*"
   endpoint:
     health:
+<<<<<<< HEAD
       show-details: always
+=======
+      show-details: always
+
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.data.mongodb.core: DEBUG
+    org.springframework.boot.actuate: DEBUG
+
+security:
+    jwt:
+      secret: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=}
+>>>>>>> develop
