@@ -1,13 +1,30 @@
 spring:
   application:
     name: ms-scoring
-  
-    data:
-      mongodb:
-        uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
-        auto-index-creation: true
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/world_dance_scoring}
+      auto-index-creation: true
+
+  cloud:
+    consul:
+      host: ${URL_CONSUL:localhost}
+      port: ${PORT_CONSUL:8500}
+      discovery:
+        health-check-path: /api/v1/actuator/health
+        health-check-interval: 10s
+        instance-id: ${spring.application.name}:${random.value}
+        prefer-ip-address: true
+
 server:
-  port: 9093
+  port: 9094
   servlet:
     context-path: /api/v1
 
