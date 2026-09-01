@@ -1,25 +1,27 @@
-# ---- Etapa 1: Build ----
+# --- Etapa 1: Build ---
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
-RUN echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" \
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" \
-  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd"> \
-  </settings>' > /usr/share/maven/ref/settings.xml
-
+# 1. Compilar e instalar la librería común (wd-lib-common)
 COPY wd-lib-common ./wd-lib-common
-RUN mvn -s /usr/share/maven/ref/settings.xml -f wd-lib-common/pom.xml clean install -DskipTests
+RUN mvn -f wd-lib-common/pom.xml clean install -DskipTests
 
-COPY ms-scoring-evaluation ./ms-scoring-evaluation
-RUN mvn -s /usr/share/maven/ref/settings.xml -f ms-scoring-evaluation/pom.xml clean package -DskipTests
+# 2. Descargar dependencias del microservicio (Caché de capas)
+COPY ms-scoring-evaluation/pom.xml ./ms-scoring-evaluation/
+RUN mvn -f ms-scoring-evaluation/pom.xml dependency:go-offline -B
 
-# ---- Etapa 2: Runtime ----
+# 3. Copiar código fuente y empaquetar
+COPY ms-scoring-evaluation/src ./ms-scoring-evaluation/src
+RUN mvn -f ms-scoring-evaluation/pom.xml clean package -DskipTests
+
+# --- Etapa 2: Runtime ---
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S spring && adduser -S spring -G spring
-USER spring
+USER spring:spring
 
 COPY --from=builder /app/ms-scoring-evaluation/target/*.jar app.jar
 
+EXPOSE 9094
 ENTRYPOINT ["java", "-jar", "app.jar"]
