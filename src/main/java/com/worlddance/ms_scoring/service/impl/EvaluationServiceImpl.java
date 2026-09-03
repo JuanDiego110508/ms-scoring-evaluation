@@ -8,6 +8,9 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
+import com.world_dance.wd_lib_common.dto.UserEventRoleResponseDto;
+import com.world_dance.wd_lib_common.enums.EventRole;
+import com.worlddance.ms_scoring.client.EnrollmentClient;
 import com.worlddance.ms_scoring.dto.request.CreateEvaluationRequest;
 import com.worlddance.ms_scoring.dto.request.CriterionScoreRequest;
 import com.worlddance.ms_scoring.dto.request.OpenEvaluationSessionRequest;
@@ -38,11 +41,13 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final EvaluationRepository evaluationRepository;
     private final EvaluationSessionRepository evaluationSessionRepository;
     private final ResultRepository resultRepository;
+    private final EnrollmentClient enrollmentClient; // <- nuevo
 
     private static final double MAX_SCORE = 100.0;
 
     @Override
-    public EvaluationSessionResponse openEvaluationSession(String eventId, String modalityId, OpenEvaluationSessionRequest request) {
+    public EvaluationSessionResponse openEvaluationSession(String eventId, String modalityId,
+            OpenEvaluationSessionRequest request) {
         EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
                 .orElseGet(() -> {
                     EvaluationSession newSession = new EvaluationSession();
@@ -53,7 +58,8 @@ public class EvaluationServiceImpl implements EvaluationService {
                 });
 
         if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
-            throw new BadRequestException("Los resultados ya han sido publicados para esta modalidad. No es posible abrir la sesión.");
+            throw new BadRequestException(
+                    "Los resultados ya han sido publicados para esta modalidad. No es posible abrir la sesión.");
         }
 
         session.setExpectedEvaluations(request.getExpectedEvaluations());
@@ -74,14 +80,16 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     @Override
-    public EvaluationResponse registerEvaluation(String eventId, String modalityId, String enrollmentId, String userId, CreateEvaluationRequest request) {
+    public EvaluationResponse registerEvaluation(String eventId, String modalityId, String enrollmentId, String userId,
+            CreateEvaluationRequest request) {
 
         validateSessionOpen(eventId, modalityId);
         validateScores(request.getScores());
 
         String userEventRoleId = userId;
 
-        if (evaluationRepository.existsByEventIdAndModalityIdAndEnrollmentIdAndUserEventRoleId(eventId, modalityId, enrollmentId, userEventRoleId)) {
+        if (evaluationRepository.existsByEventIdAndModalityIdAndEnrollmentIdAndUserEventRoleId(eventId, modalityId,
+                enrollmentId, userEventRoleId)) {
             throw new BadRequestException("El jurado ya registró una evaluación para este participante.");
         }
 
@@ -134,7 +142,8 @@ public class EvaluationServiceImpl implements EvaluationService {
             throw new BadRequestException("La modalidad debe estar cerrada antes de publicar resultados.");
         }
 
-        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId, modalityId, ResultStatus.READY);
+        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
+                modalityId, ResultStatus.READY);
 
         for (Result result : results) {
             result.setStatus(ResultStatus.PUBLISHED);
@@ -148,7 +157,8 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     @Override
     public List<ResultResponse> getResultsByModality(String eventId, String modalityId) {
-        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId, modalityId, ResultStatus.PUBLISHED);
+        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
+                modalityId, ResultStatus.PUBLISHED);
 
         List<ResultResponse> response = new ArrayList<>();
         for (Result result : results) {
@@ -172,7 +182,8 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     private EvaluationSession findEvaluationSession(String eventId, String modalityId) {
         return evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
-                .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación para la modalidad solicitada."));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No existe la sesión de evaluación para la modalidad solicitada."));
     }
 
     private void updateEvaluationSession(Evaluation evaluation) {
@@ -185,7 +196,8 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         session.setCompletedEvaluations(completed + 1);
 
-        if (session.getExpectedEvaluations() != null && session.getCompletedEvaluations() >= session.getExpectedEvaluations()) {
+        if (session.getExpectedEvaluations() != null
+                && session.getCompletedEvaluations() >= session.getExpectedEvaluations()) {
             session.setStatus(EvaluationSessionStatus.CLOSED);
         }
 
@@ -193,7 +205,8 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     private void calculateParticipantResult(String eventId, String modalityId, String enrollmentId) {
-        List<Evaluation> evaluations = evaluationRepository.findByEventIdAndModalityIdAndEnrollmentId(eventId, modalityId, enrollmentId);
+        List<Evaluation> evaluations = evaluationRepository.findByEventIdAndModalityIdAndEnrollmentId(eventId,
+                modalityId, enrollmentId);
         EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
                 .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación."));
 
@@ -209,13 +222,13 @@ public class EvaluationServiceImpl implements EvaluationService {
         double finalScore = total / evaluations.size();
 
         Result result = resultRepository
-            .findByEventIdAndModalityIdAndEnrollmentId(eventId, modalityId, enrollmentId)
-            .orElseGet(Result::new);
+                .findByEventIdAndModalityIdAndEnrollmentId(eventId, modalityId, enrollmentId)
+                .orElseGet(Result::new);
 
         result.setEventId(eventId);
         result.setModalityId(modalityId);
         result.setEnrollmentId(enrollmentId);
-        
+
         if (session.getExpectedJudges() != null && evaluations.size() == session.getExpectedJudges()) {
             result.setFinalScore(finalScore);
             result.setStatus(ResultStatus.READY);
@@ -229,7 +242,8 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     private void generateRanking(String eventId, String modalityId) {
-        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId, modalityId, ResultStatus.READY);
+        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
+                modalityId, ResultStatus.READY);
 
         int ranking = 1;
         for (Result result : results) {
@@ -239,8 +253,8 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     private Evaluation findEvaluationById(String evaluationId) {
-        return evaluationRepository.findById(evaluationId).orElseThrow(() -> 
-            new ResourceNotFoundException("No se encontró la evaluación con ID: " + evaluationId));
+        return evaluationRepository.findById(evaluationId).orElseThrow(
+                () -> new ResourceNotFoundException("No se encontró la evaluación con ID: " + evaluationId));
     }
 
     private Double calculateTotalScore(List<CriterionScore> scores) {
@@ -274,16 +288,17 @@ public class EvaluationServiceImpl implements EvaluationService {
 
             if (!criterionNames.add(criterion.getCriterionName().trim().toLowerCase())) {
                 throw new BadRequestException(
-                    "El criterio '" + criterion.getCriterionName() + "' está repetido.");
+                        "El criterio '" + criterion.getCriterionName() + "' está repetido.");
             }
 
             if (criterion.getPercentage() <= 0) {
                 throw new BadRequestException(
-                    "El porcentaje del criterio '" + criterion.getCriterionName() + "' debe ser mayor a 0.");
+                        "El porcentaje del criterio '" + criterion.getCriterionName() + "' debe ser mayor a 0.");
             }
 
             if (criterion.getPercentage() > MAX_SCORE) {
-                throw new BadRequestException("El porcentaje del criterio '" + criterion.getCriterionName() + "' no puede ser mayor a 100.");
+                throw new BadRequestException(
+                        "El porcentaje del criterio '" + criterion.getCriterionName() + "' no puede ser mayor a 100.");
             }
 
             if (criterion.getScore() < 0) {
@@ -301,7 +316,7 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         if (Double.compare(totalPercentage, MAX_SCORE) != 0) {
             throw new BadRequestException(
-                "La suma de los porcentajes debe ser exactamente 100. Actualmente es: " + totalPercentage);
+                    "La suma de los porcentajes debe ser exactamente 100. Actualmente es: " + totalPercentage);
         }
     }
 
@@ -313,14 +328,14 @@ public class EvaluationServiceImpl implements EvaluationService {
             criterionScore.setCriterionName(request.getCriterionName().trim().replaceAll("\\s+", " "));
             criterionScore.setPercentage(request.getPercentage());
             criterionScore.setScore(request.getScore());
-            
+
             scores.add(criterionScore);
         }
         return scores;
     }
 
     private Evaluation buildEvaluation(String eventId, String modalityId, String enrollmentId,
-        String userEventRoleId, CreateEvaluationRequest request) {
+            String userEventRoleId, CreateEvaluationRequest request) {
 
         Evaluation evaluation = new Evaluation();
 
