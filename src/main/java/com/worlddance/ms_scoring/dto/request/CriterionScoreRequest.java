@@ -14,10 +14,10 @@ import lombok.NoArgsConstructor;
 public class CriterionScoreRequest {
     
     @NotBlank(message = "El nombre del criterio es obligatorio.")
-    private String CriterionName;
+    private String criterionName;
 
     @NotNull(message = "El porcentaje del criterio es obligatorio.")
-    @DecimalMin(value = "0.0", message = "El porcentaje no puede ser negativo.")
+    @DecimalMin(value = "0.0", message = "El porcentaje no puede negativo.")
     @DecimalMax(value = "100.0", message = "El porcentaje no puede superar 100.")
     private Double percentage;
 

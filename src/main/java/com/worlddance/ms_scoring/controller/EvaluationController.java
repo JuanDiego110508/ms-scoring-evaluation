@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 public class EvaluationController {
 
     private final EvaluationService evaluationService;
-
     @PostMapping("/enrollments/{enrollmentId}/evaluations")
     public ResponseEntity<EvaluationResponse> registerEvaluation(
         @PathVariable String eventId,

@@ -3,11 +3,30 @@ package com.worlddance.ms_scoring.service;
 import java.util.List;
 
 import com.worlddance.ms_scoring.dto.request.CreateEvaluationRequest;
+import com.worlddance.ms_scoring.dto.request.OpenEvaluationSessionRequest;
 import com.worlddance.ms_scoring.dto.request.UpdateEvaluationRequest;
 import com.worlddance.ms_scoring.dto.response.EvaluationResponse;
+import com.worlddance.ms_scoring.dto.response.EvaluationSessionResponse;
 import com.worlddance.ms_scoring.dto.response.ResultResponse;
 
 public interface EvaluationService {
+
+    /**
+     * Abrir / Inicializar sesión de evaluación.
+     */
+    EvaluationSessionResponse openEvaluationSession(
+        String eventId,
+        String modalityId,
+        OpenEvaluationSessionRequest request
+    );
+
+    /**
+     * Consultar sesión de evaluación.
+     */
+    EvaluationSessionResponse getEvaluationSession(
+        String eventId,
+        String modalityId
+    );
     
     /**
      *  HU44 - Registrar puntaje. 
