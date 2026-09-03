@@ -13,8 +13,10 @@ import com.world_dance.wd_lib_common.enums.EventRole;
 import com.worlddance.ms_scoring.client.EnrollmentClient;
 import com.worlddance.ms_scoring.dto.request.CreateEvaluationRequest;
 import com.worlddance.ms_scoring.dto.request.CriterionScoreRequest;
+import com.worlddance.ms_scoring.dto.request.OpenEvaluationSessionRequest;
 import com.worlddance.ms_scoring.dto.request.UpdateEvaluationRequest;
 import com.worlddance.ms_scoring.dto.response.EvaluationResponse;
+import com.worlddance.ms_scoring.dto.response.EvaluationSessionResponse;
 import com.worlddance.ms_scoring.dto.response.ResultResponse;
 import com.worlddance.ms_scoring.entity.Evaluation;
 import com.worlddance.ms_scoring.entity.EvaluationSession;
@@ -41,34 +43,54 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final ResultRepository resultRepository;
     private final EnrollmentClient enrollmentClient; // <- nuevo
 
-
     private static final double MAX_SCORE = 100.0;
 
-    /**
-     * Metodos publicos de la interfaz EvaluationService implementados en esta
-     * clase.
-     */
+    @Override
+    public EvaluationSessionResponse openEvaluationSession(String eventId, String modalityId,
+            OpenEvaluationSessionRequest request) {
+        EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
+                .orElseGet(() -> {
+                    EvaluationSession newSession = new EvaluationSession();
+                    newSession.setEventId(eventId);
+                    newSession.setModalityId(modalityId);
+                    newSession.setCompletedEvaluations(0);
+                    return newSession;
+                });
+
+        if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
+            throw new BadRequestException(
+                    "Los resultados ya han sido publicados para esta modalidad. No es posible abrir la sesión.");
+        }
+
+        session.setExpectedEvaluations(request.getExpectedEvaluations());
+        session.setExpectedJudges(request.getExpectedJudges());
+        session.setStatus(EvaluationSessionStatus.OPEN);
+        if (session.getCompletedEvaluations() == null) {
+            session.setCompletedEvaluations(0);
+        }
+
+        EvaluationSession savedSession = evaluationSessionRepository.save(session);
+        return buildEvaluationSessionResponse(savedSession);
+    }
+
+    @Override
+    public EvaluationSessionResponse getEvaluationSession(String eventId, String modalityId) {
+        EvaluationSession session = findEvaluationSession(eventId, modalityId);
+        return buildEvaluationSessionResponse(session);
+    }
+
     @Override
     public EvaluationResponse registerEvaluation(String eventId, String modalityId, String enrollmentId, String userId,
             CreateEvaluationRequest request) {
 
         validateSessionOpen(eventId, modalityId);
-
         validateScores(request.getScores());
 
-        /** Obtener el rol del usuario en el evento desde Enrollment */
-        UserEventRoleResponseDto userEventRole = enrollmentClient.getUserEventRole(
-                Long.parseLong(eventId), Long.parseLong(userId));
-
-        if (userEventRole.getRoleInEvent() != EventRole.JURY) {
-            throw new BadRequestException("Solo un jurado puede registrar evaluaciones para este evento.");
-        }
-
-        String userEventRoleId = String.valueOf(userEventRole.getId());
+        String userEventRoleId = userId;
 
         if (evaluationRepository.existsByEventIdAndModalityIdAndEnrollmentIdAndUserEventRoleId(eventId, modalityId,
                 enrollmentId, userEventRoleId)) {
-            throw new BadRequestException("El jurado ya registro una evaluacion para este participante.");
+            throw new BadRequestException("El jurado ya registró una evaluación para este participante.");
         }
 
         Evaluation evaluation = buildEvaluation(eventId, modalityId, enrollmentId, userEventRoleId, request);
@@ -83,11 +105,6 @@ public class EvaluationServiceImpl implements EvaluationService {
     @Override
     public EvaluationResponse updateEvaluation(String evaluationId, String userId, UpdateEvaluationRequest request) {
         Evaluation evaluation = findEvaluationById(evaluationId);
-
-        /**
-         * Validar que el userId corresponda al userEventRoleId,
-         * obtenerlo desde Enrollment Service.
-         */
 
         validateSessionOpen(evaluation.getEventId(), evaluation.getModalityId());
 
@@ -104,20 +121,12 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     @Override
     public EvaluationResponse getEvaluation(String evaluationId) {
-
         Evaluation evaluation = findEvaluationById(evaluationId);
         return buildResponse(evaluation);
     }
 
     @Override
     public void closeEvaluationSession(String eventId, String modalityId, String organizerId) {
-
-        /*
-         * Validar que organizerId corresponda a un ORGANIZER
-         * consultando Event service
-         */
-
-
         EvaluationSession session = findEvaluationSession(eventId, modalityId);
 
         session.setStatus(EvaluationSessionStatus.CLOSED);
@@ -126,14 +135,6 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     @Override
     public void publishResults(String eventId, String modalityId, String organizerId) {
-
-
-        /*
-         * Validar que organizerId corresponda a un ORGANIZER
-         * consultando Event service
-         */
-
-
         EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
                 .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación."));
 
@@ -145,10 +146,8 @@ public class EvaluationServiceImpl implements EvaluationService {
                 modalityId, ResultStatus.READY);
 
         for (Result result : results) {
-
             result.setStatus(ResultStatus.PUBLISHED);
             result.setPublishedAt(Instant.now());
-
             resultRepository.save(result);
         }
 
@@ -158,12 +157,10 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     @Override
     public List<ResultResponse> getResultsByModality(String eventId, String modalityId) {
-
         List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
                 modalityId, ResultStatus.PUBLISHED);
 
         List<ResultResponse> response = new ArrayList<>();
-
         for (Result result : results) {
             response.add(buildResultResponse(result));
         }
@@ -171,44 +168,36 @@ public class EvaluationServiceImpl implements EvaluationService {
         return response;
     }
 
-    /**
-     * Metodos auxiliares utilizados para la logica de negocio.
-     */
-
     private void validateSessionOpen(String eventId, String modalityId) {
-
         EvaluationSession session = findEvaluationSession(eventId, modalityId);
 
         if (session.getStatus() == EvaluationSessionStatus.CLOSED) {
-            throw new EvaluationClosedException(
-                    "La modalidad ya fue cerrada.");
+            throw new EvaluationClosedException("La modalidad ya fue cerrada.");
         }
 
         if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
-            throw new EvaluationClosedException(
-                    "Los resultados ya fueron publicados.");
+            throw new EvaluationClosedException("Los resultados ya fueron publicados.");
         }
     }
 
     private EvaluationSession findEvaluationSession(String eventId, String modalityId) {
         return evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
-                .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación."));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No existe la sesión de evaluación para la modalidad solicitada."));
     }
 
     private void updateEvaluationSession(Evaluation evaluation) {
-
-        EvaluationSession session = findEvaluationSession(evaluation.getEventId(),
-                evaluation.getModalityId());
+        EvaluationSession session = findEvaluationSession(evaluation.getEventId(), evaluation.getModalityId());
 
         Integer completed = session.getCompletedEvaluations();
-
         if (completed == null) {
             completed = 0;
         }
 
         session.setCompletedEvaluations(completed + 1);
 
-        if (session.getCompletedEvaluations() >= session.getExpectedEvaluations()) {
+        if (session.getExpectedEvaluations() != null
+                && session.getCompletedEvaluations() >= session.getExpectedEvaluations()) {
             session.setStatus(EvaluationSessionStatus.CLOSED);
         }
 
@@ -216,10 +205,8 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     private void calculateParticipantResult(String eventId, String modalityId, String enrollmentId) {
-
         List<Evaluation> evaluations = evaluationRepository.findByEventIdAndModalityIdAndEnrollmentId(eventId,
                 modalityId, enrollmentId);
-
         EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
                 .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación."));
 
@@ -228,7 +215,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
 
         double total = 0.0;
-
         for (Evaluation evaluation : evaluations) {
             total += evaluation.getTotalScore();
         }
@@ -243,7 +229,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         result.setModalityId(modalityId);
         result.setEnrollmentId(enrollmentId);
 
-        if (evaluations.size() == session.getExpectedJudges()) {
+        if (session.getExpectedJudges() != null && evaluations.size() == session.getExpectedJudges()) {
             result.setFinalScore(finalScore);
             result.setStatus(ResultStatus.READY);
         } else {
@@ -256,21 +242,17 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     private void generateRanking(String eventId, String modalityId) {
-
         List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
                 modalityId, ResultStatus.READY);
 
         int ranking = 1;
-
         for (Result result : results) {
-
             result.setRanking(ranking++);
             resultRepository.save(result);
         }
     }
 
     private Evaluation findEvaluationById(String evaluationId) {
-
         return evaluationRepository.findById(evaluationId).orElseThrow(
                 () -> new ResourceNotFoundException("No se encontró la evaluación con ID: " + evaluationId));
     }
@@ -296,7 +278,6 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
 
         double totalPercentage = 0;
-
         Set<String> criterionNames = new HashSet<>();
 
         for (CriterionScoreRequest criterion : scores) {
@@ -322,13 +303,12 @@ public class EvaluationServiceImpl implements EvaluationService {
 
             if (criterion.getScore() < 0) {
                 throw new BadRequestException(
-                        "La calificacion del criterio '" + criterion.getCriterionName() + "' no puede ser negativa.");
+                    "La calificación del criterio '" + criterion.getCriterionName() + "' no puede ser negativa.");
             }
 
             if (criterion.getScore() > MAX_SCORE) {
                 throw new BadRequestException(
-                        "La calificacion del criterio '" + criterion.getCriterionName()
-                                + "' no puede ser mayor a 100.");
+                    "La calificación del criterio '" + criterion.getCriterionName() + "' no puede ser mayor a 100.");
             }
 
             totalPercentage += criterion.getPercentage();
@@ -341,11 +321,9 @@ public class EvaluationServiceImpl implements EvaluationService {
     }
 
     private List<CriterionScore> buildScores(List<CriterionScoreRequest> requests) {
-
         List<CriterionScore> scores = new ArrayList<>();
 
         for (CriterionScoreRequest request : requests) {
-
             CriterionScore criterionScore = new CriterionScore();
             criterionScore.setCriterionName(request.getCriterionName().trim().replaceAll("\\s+", " "));
             criterionScore.setPercentage(request.getPercentage());
@@ -378,6 +356,7 @@ public class EvaluationServiceImpl implements EvaluationService {
     private EvaluationResponse buildResponse(Evaluation evaluation) {
         EvaluationResponse response = new EvaluationResponse();
 
+        response.setId(evaluation.getId());
         response.setEvaluationId(evaluation.getId());
         response.setEventId(evaluation.getEventId());
         response.setModalityId(evaluation.getModalityId());
@@ -385,12 +364,29 @@ public class EvaluationServiceImpl implements EvaluationService {
         response.setScores(evaluation.getScores());
         response.setTotalScore(evaluation.getTotalScore());
         response.setObservations(evaluation.getObservations());
+        response.setCreatedAt(evaluation.getCreatedAt());
+        response.setUpdatedAt(evaluation.getUpdatedAt());
+
+        return response;
+    }
+
+    private EvaluationSessionResponse buildEvaluationSessionResponse(EvaluationSession session) {
+        EvaluationSessionResponse response = new EvaluationSessionResponse();
+
+        response.setId(session.getId());
+        response.setEventId(session.getEventId());
+        response.setModalityId(session.getModalityId());
+        response.setExpectedEvaluations(session.getExpectedEvaluations());
+        response.setCompletedEvaluations(session.getCompletedEvaluations());
+        response.setExpectedJudges(session.getExpectedJudges());
+        response.setStatus(session.getStatus());
+        response.setCreatedAt(session.getCreatedAt());
+        response.setUpdatedAt(session.getUpdatedAt());
 
         return response;
     }
 
     private ResultResponse buildResultResponse(Result result) {
-
         ResultResponse response = new ResultResponse();
 
         response.setId(result.getId());
