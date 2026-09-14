@@ -21,10 +21,6 @@ public class ResultResponse {
 
     private String enrollmentId;
 
-    /**
-     * Obtener de enrollment service
-     */
-    private String participantName;
 
     private Double finalScore;
 
