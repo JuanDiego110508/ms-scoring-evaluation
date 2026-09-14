@@ -59,7 +59,7 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
             throw new BadRequestException(
-                    "Los resultados ya han sido publicados para esta modalidad. No es posible abrir la sesión.");
+                    "Los resultados ya han sido publicados para esta sesión de evaluación. No es posible abrir la sesión.");
         }
 
         session.setExpectedEvaluations(request.getExpectedEvaluations());
@@ -129,8 +129,22 @@ public class EvaluationServiceImpl implements EvaluationService {
     public void closeEvaluationSession(String eventId, String modalityId, String organizerId) {
         EvaluationSession session = findEvaluationSession(eventId, modalityId);
 
+        if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
+            throw new BadRequestException("No se puede cerrar una sesión que ya fue publicada.");
+        }
+
         session.setStatus(EvaluationSessionStatus.CLOSED);
         evaluationSessionRepository.save(session);
+
+        // Convert any PENDING results to READY so they are included in the final ranking
+        List<Result> pendingResults = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId, modalityId, ResultStatus.PENDING);
+        if (!pendingResults.isEmpty()) {
+            for (Result result : pendingResults) {
+                result.setStatus(ResultStatus.READY);
+                resultRepository.save(result);
+            }
+            generateRanking(eventId, modalityId);
+        }
     }
 
     @Override
@@ -138,8 +152,12 @@ public class EvaluationServiceImpl implements EvaluationService {
         EvaluationSession session = evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
                 .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación."));
 
+        if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
+            throw new BadRequestException("Los resultados ya fueron publicados previamente.");
+        }
+
         if (session.getStatus() != EvaluationSessionStatus.CLOSED) {
-            throw new BadRequestException("La modalidad debe estar cerrada antes de publicar resultados.");
+            throw new BadRequestException("La sesión de evaluación debe estar cerrada antes de publicar resultados.");
         }
 
         List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
@@ -172,7 +190,7 @@ public class EvaluationServiceImpl implements EvaluationService {
         EvaluationSession session = findEvaluationSession(eventId, modalityId);
 
         if (session.getStatus() == EvaluationSessionStatus.CLOSED) {
-            throw new EvaluationClosedException("La modalidad ya fue cerrada.");
+            throw new EvaluationClosedException("La sesión de evaluación ya fue cerrada.");
         }
 
         if (session.getStatus() == EvaluationSessionStatus.PUBLISHED) {
@@ -199,9 +217,20 @@ public class EvaluationServiceImpl implements EvaluationService {
         if (session.getExpectedEvaluations() != null
                 && session.getCompletedEvaluations() >= session.getExpectedEvaluations()) {
             session.setStatus(EvaluationSessionStatus.CLOSED);
+            evaluationSessionRepository.save(session);
+            
+            // Auto-close: convert PENDING to READY and rank
+            List<Result> pendingResults = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(session.getEventId(), session.getModalityId(), ResultStatus.PENDING);
+            if (!pendingResults.isEmpty()) {
+                for (Result result : pendingResults) {
+                    result.setStatus(ResultStatus.READY);
+                    resultRepository.save(result);
+                }
+                generateRanking(session.getEventId(), session.getModalityId());
+            }
+        } else {
+            evaluationSessionRepository.save(session);
         }
-
-        evaluationSessionRepository.save(session);
     }
 
     private void calculateParticipantResult(String eventId, String modalityId, String enrollmentId) {
