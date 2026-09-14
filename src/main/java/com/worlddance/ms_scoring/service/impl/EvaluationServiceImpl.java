@@ -136,10 +136,20 @@ public class EvaluationServiceImpl implements EvaluationService {
         session.setStatus(EvaluationSessionStatus.CLOSED);
         evaluationSessionRepository.save(session);
 
-        // Convert any PENDING results to READY so they are included in the final ranking
+        // Convert any PENDING results to READY and calculate their average so they are not 0.0
         List<Result> pendingResults = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId, modalityId, ResultStatus.PENDING);
         if (!pendingResults.isEmpty()) {
             for (Result result : pendingResults) {
+                // Fetch evaluations to calculate the average
+                List<Evaluation> evaluations = evaluationRepository.findByEventIdAndModalityIdAndEnrollmentId(eventId, modalityId, result.getEnrollmentId());
+                if (!evaluations.isEmpty()) {
+                    double total = 0.0;
+                    for (Evaluation eval : evaluations) {
+                        total += eval.getTotalScore();
+                    }
+                    result.setFinalScore(total / evaluations.size());
+                }
+                
                 result.setStatus(ResultStatus.READY);
                 resultRepository.save(result);
             }
@@ -223,6 +233,16 @@ public class EvaluationServiceImpl implements EvaluationService {
             List<Result> pendingResults = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(session.getEventId(), session.getModalityId(), ResultStatus.PENDING);
             if (!pendingResults.isEmpty()) {
                 for (Result result : pendingResults) {
+                    // Fetch evaluations to calculate the average
+                    List<Evaluation> evaluations = evaluationRepository.findByEventIdAndModalityIdAndEnrollmentId(session.getEventId(), session.getModalityId(), result.getEnrollmentId());
+                    if (!evaluations.isEmpty()) {
+                        double total = 0.0;
+                        for (Evaluation eval : evaluations) {
+                            total += eval.getTotalScore();
+                        }
+                        result.setFinalScore(total / evaluations.size());
+                    }
+
                     result.setStatus(ResultStatus.READY);
                     resultRepository.save(result);
                 }
