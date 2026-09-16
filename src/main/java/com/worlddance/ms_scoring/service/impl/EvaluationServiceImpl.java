@@ -210,8 +210,16 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     private EvaluationSession findEvaluationSession(String eventId, String modalityId) {
         return evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "No existe la sesión de evaluación para la modalidad solicitada."));
+                .orElseGet(() -> {
+                    EvaluationSession newSession = new EvaluationSession();
+                    newSession.setEventId(eventId);
+                    newSession.setModalityId(modalityId);
+                    newSession.setStatus(EvaluationSessionStatus.OPEN);
+                    newSession.setExpectedEvaluations(100); // Default placeholder
+                    newSession.setExpectedJudges(1); // Default placeholder
+                    newSession.setCompletedEvaluations(0);
+                    return evaluationSessionRepository.save(newSession);
+                });
     }
 
     private void updateEvaluationSession(Evaluation evaluation) {
