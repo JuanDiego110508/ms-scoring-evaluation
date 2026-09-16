@@ -12,4 +12,6 @@ public interface ResultRepository extends MongoRepository<Result, String> {
     Optional<Result> findByEventIdAndModalityIdAndEnrollmentId(String eventId, String modalityId, String enrollmentId);
 
     List<Result> findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(String eventId, String modalityId, ResultStatus status);
+
+    List<Result> findByEventIdAndModalityId(String eventId, String modalityId);
 }
