@@ -185,8 +185,16 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     @Override
     public List<ResultResponse> getResultsByModality(String eventId, String modalityId) {
-        List<Result> results = resultRepository.findByEventIdAndModalityIdAndStatusOrderByFinalScoreDesc(eventId,
-                modalityId, ResultStatus.PUBLISHED);
+        // Return all results (not just PUBLISHED) so juries can see what they've evaluated
+        List<Result> results = resultRepository.findByEventIdAndModalityId(eventId, modalityId);
+        
+        // Sort in memory by ranking or finalScore
+        results.sort((a, b) -> {
+            if (a.getFinalScore() == null && b.getFinalScore() == null) return 0;
+            if (a.getFinalScore() == null) return 1;
+            if (b.getFinalScore() == null) return -1;
+            return Double.compare(b.getFinalScore(), a.getFinalScore());
+        });
 
         List<ResultResponse> response = new ArrayList<>();
         for (Result result : results) {
@@ -210,16 +218,7 @@ public class EvaluationServiceImpl implements EvaluationService {
 
     private EvaluationSession findEvaluationSession(String eventId, String modalityId) {
         return evaluationSessionRepository.findByEventIdAndModalityId(eventId, modalityId)
-                .orElseGet(() -> {
-                    EvaluationSession newSession = new EvaluationSession();
-                    newSession.setEventId(eventId);
-                    newSession.setModalityId(modalityId);
-                    newSession.setStatus(EvaluationSessionStatus.OPEN);
-                    newSession.setExpectedEvaluations(100); // Default placeholder
-                    newSession.setExpectedJudges(1); // Default placeholder
-                    newSession.setCompletedEvaluations(0);
-                    return evaluationSessionRepository.save(newSession);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("No existe la sesión de evaluación para la modalidad solicitada."));
     }
 
     private void updateEvaluationSession(Evaluation evaluation) {
